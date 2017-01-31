@@ -1,0 +1,7 @@
+<use name="FWCore/Framework"/>
+<use name="DataFormats/SiPixelDigi"/>
+<use name="OnChipDataCompression/Algorithms"/>
+<use name="root"/>
+
+<library file="TestDictionaryBuilder.cc" name="TestDictionaryBuilder"> <flags EDM_PLUGIN="1"/> </library>
+<library file="TestChipDataEncoder.cc" name="TestChipDataEncoder"> <flags EDM_PLUGIN="1"/> </library>
