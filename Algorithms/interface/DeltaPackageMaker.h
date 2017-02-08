@@ -9,40 +9,6 @@ This file is part of https://github.com/kandrosov/OnChipDataCompression. */
 
 namespace pixel_studies {
 
-class RegionIterator {
-public:
-    static const PixelAdcPair& DefaultPixel() { static const PixelAdcPair pixel(Pixel(0, 0), 0); return pixel; }
-    explicit RegionIterator(const PixelWithAdcVector& _pixels) : pixels(_pixels), current_position(0) {}
-
-    size_t size() const { return pixels.size(); }
-    const PixelAdcPair& previous() const
-    {
-        if(!current_position) return DefaultPixel();
-        return pixels.at(current_position - 1);
-    }
-
-    bool has_current() const { return current_position < pixels.size(); }
-
-    const PixelAdcPair& current() const
-    {
-        if(!has_current())
-            throw exception("Pixel not available.");
-        return pixels.at(current_position);
-    }
-
-    void move_next()
-    {
-        if(!has_current())
-            throw exception("Unable to move to the next pixel.");
-        ++current_position;
-    }
-
-private:
-    PixelWithAdcVector pixels;
-    size_t current_position;
-};
-
-
 enum class DeltaPackageMakerMode { SeparateDelta, CombinedDelta };
 
 template<typename Decoder>
@@ -113,7 +79,8 @@ public:
                 Encoder::EncodeLetter(*adc_stat, adc, package);
                 region_iter.move_next();
             }
-            package.next_readout_cicle();
+            if((n+1) % 2 == 0 || (n+1) == max_size)
+                package.next_readout_cicle();
         }
 
         if(n_macro_regions > 1) {

@@ -27,6 +27,7 @@ public:
     using HistPtr = std::shared_ptr<TH1D>;
     using HistMap = std::map<std::string, HistPtr>;
     using PixelDigiCollection = edm::DetSetVector<PixelDigi>;
+    using Package = pixel_studies::Package;
 
     TestChipDataEncoder(const edm::ParameterSet& cfg) :
         dictionaries_file(cfg.getParameter<std::string>("dictionaries")),
@@ -43,8 +44,12 @@ public:
         encoders["Delta"] = std::make_shared<Encoder>(EncoderFormat::Delta, chip_layout, readout_unit_layout, 15,
                                                       Ordering::ByRegionByColumn, dictionaries_file);
         for(const auto& encoder_entry : encoders) {
-            const std::string& name = "BitsPerChip_" + encoder_entry.first;
-            histograms[name] = std::make_shared<Hist>(name.c_str(), name.c_str(), 12800, -0.5, 12799.5);
+            CreateCommonHist("BitsPerChip_" + encoder_entry.first, 12800);
+            CreateCommonHist("BitsPerItem_" + encoder_entry.first, 1280);
+            CreateCommonHist("N_readoutClc_" + encoder_entry.first, 1000);
+            CreateCommonHist("N_readoutActiveClc_" + encoder_entry.first, 1000);
+            CreateCommonHist("N_readoutInactiveClc_" + encoder_entry.first, 1000);
+            CreateCommonHist("Max_readoutQueue_" + encoder_entry.first, 1000);
         }
     }
 
@@ -71,24 +76,96 @@ public:
                     chip.HasSamePixels(decoded_chip, &std::cerr);
                     throw pixel_studies::exception("invalid encoding-decoding");
                 }
-                const std::string& hist_name = "BitsPerChip_" + encoder_entry.first;
-                FillHistogram(hist_name, package.size());
+                AnalyzePackage(encoder_entry.first, package);
             }
         }
     }
 
     virtual void endJob()
     {
+        static const std::vector<double> quantiles = { 0.01, 0.001, 0.0001 };
+        static const size_t first_column_width = 50, q_column_width = 15;
+        static const std::string h_sep = " | ";
+        static const size_t v_sep_width = first_column_width + h_sep.size()
+                + quantiles.size() * (q_column_width + h_sep.size());
+        static const std::string v_sep(v_sep_width, '-');
+
+        std::cout << v_sep << "\n" << std::left << std::setw(first_column_width) << "Histogram name" << h_sep;
+        for(size_t n = 0; n < quantiles.size(); ++n) {
+            std::ostringstream ss;
+            const double efficiency = (1. - quantiles.at(n)) * 100.;
+            ss << efficiency << "% events";
+            std::cout << std::setw(q_column_width) << ss.str() << h_sep;
+        }
+        std::cout << "\n" << v_sep << "\n";
         auto& file = edm::Service<TFileService>()->file();
-        for(const auto& hist_entry : histograms)
+        for(const auto& hist_entry : histograms) {
+            std::cout << std::left << std::setw(first_column_width) << hist_entry.first << h_sep;
+            for(size_t n = 0; n < quantiles.size(); ++n) {
+                const double upper_limit = GetUpperLimit(hist_entry.first, quantiles.at(n));
+                std::ostringstream ss;
+                ss << "< " << upper_limit;
+                std::cout << std::setw(q_column_width) << ss.str() << h_sep;
+            }
+            std::cout << "\n";
+
             file.WriteTObject(hist_entry.second.get(), hist_entry.first.c_str());
+        }
+        std::cout << v_sep << std::endl;
     }
 
 private:
+    void CreateCommonHist(const std::string& name, size_t n_bins)
+    {
+        histograms[name] = std::make_shared<Hist>(name.c_str(), name.c_str(), n_bins, -0.5, n_bins - 0.5);
+    }
+
     void FillHistogram(const std::string& name, double value)
     {
         std::unique_lock<std::mutex> lock(mutex);
         histograms.at(name)->Fill(value);
+    }
+
+    void AnalyzePackage(const std::string& maker_name, const Package& package)
+    {
+        using PositionCollection = Package::PositionCollection;
+        static const size_t out_size = 64;
+
+        FillHistogram("BitsPerChip_" + maker_name, package.size());
+        const PositionCollection& queue = package.readout_positions();
+        size_t n_clc = 0, n_active_clc = 0, out_queue_pos = 0, prev_pos = 0, max_out_queue_pos = 0;
+        for(size_t pos : queue) {
+            const size_t item_size = pos - prev_pos;
+            FillHistogram("BitsPerItem_" + maker_name, item_size);
+            out_queue_pos += item_size;
+            max_out_queue_pos = std::max(out_queue_pos, max_out_queue_pos);
+            prev_pos = pos;
+            if(out_queue_pos >= out_size) {
+                out_queue_pos -= out_size;
+                ++n_active_clc;
+            }
+            ++n_clc;
+        }
+        while(out_queue_pos) {
+            out_queue_pos -= std::min(out_queue_pos, out_size);
+            ++n_clc; ++n_active_clc;
+        }
+        FillHistogram("N_readoutClc_" + maker_name, n_clc);
+        FillHistogram("N_readoutActiveClc_" + maker_name, n_active_clc);
+        FillHistogram("N_readoutInactiveClc_" + maker_name, n_clc - n_active_clc);
+        FillHistogram("Max_readoutQueue_" + maker_name, max_out_queue_pos);
+    }
+
+    double GetUpperLimit(const std::string& name, double quantile) const
+    {
+        const auto& hist = histograms.at(name);
+        const int last_bin = hist->GetNbinsX() + 1;
+        const double full_integral = hist->Integral(0, last_bin);
+        const double q_integral = quantile * full_integral;
+        int q_bin = last_bin;
+        while(hist->Integral(q_bin, last_bin) < q_integral)
+            --q_bin;
+        return hist->GetBinLowEdge(q_bin);
     }
 
 private:
