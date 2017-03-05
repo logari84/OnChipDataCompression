@@ -115,7 +115,7 @@ public:
         }
 
         Package::iterator iter = package.begin();
-        for(size_t n = 0; (n_macro_regions != 1 && n < max_n_pixels) || iter != package.end(); ++n) {
+        for(size_t n = 0; n < max_n_pixels && iter != package.end(); ++n) {
             for(size_t k = 0; k < n_macro_regions; ++k) {
                 if(n_pixels.at(k) <= n) continue;
                 const Pixel region_pixel = DecodePixel(iter, layout, previous_pixel.at(k));

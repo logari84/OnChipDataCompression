@@ -19,7 +19,7 @@ public:
     TestDictionaryBuilder(const edm::ParameterSet& cfg) :
         outputFile(cfg.getParameter<std::string>("outputFile")),
         pixelDigis_token(consumes<PixelDigiCollection>(cfg.getParameter<edm::InputTag>("pixelDigis"))),
-        chip_layout(400, 400, 1, 1), readout_unit_layout(2, 2),
+        chip_layout(400, 400, 1, 4), readout_unit_layout(2, 2),
         builder(chip_layout, pixel_studies::Ordering::ByRegionByColumn, readout_unit_layout, 15, 32)
     {
     }

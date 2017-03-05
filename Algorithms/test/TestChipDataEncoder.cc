@@ -32,7 +32,7 @@ public:
     TestChipDataEncoder(const edm::ParameterSet& cfg) :
         dictionaries_file(cfg.getParameter<std::string>("dictionaries")),
         pixelDigis_token(consumes<PixelDigiCollection>(cfg.getParameter<edm::InputTag>("pixelDigis"))),
-        chip_layout(400, 400, 1, 1), readout_unit_layout(2, 2)
+        chip_layout(400, 400, 1, 4), readout_unit_layout(2, 2)
     {
         using namespace pixel_studies;
         encoders["SinglePixel"] = std::make_shared<Encoder>(EncoderFormat::SinglePixel, chip_layout,
