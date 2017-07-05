@@ -30,9 +30,25 @@ public:
         edm::Handle<PixelDigiCollection> pixelDigis;
         event.getByToken(pixelDigis_token, pixelDigis);
         for(const auto& detector : *pixelDigis) {
-            // Here one should select only detectors that belongs to the area of interests.
-            // For example, only detectors that belong to a given layer or eta region.
-            // Moreover, module should be splet into chips.
+            const auto& detId = detector.detId();
+            int layerId = 0, partId = -1;
+            if(filterResult.detId.subdetId() == PixelSubdetector::PixelBarrel) {
+                const PXBDetId detId(filterResult.detId);
+                layerId = static_cast<int>(detId.layer());
+                partId = 0;
+            } else if(filterResult.detId.subdetId() == PixelSubdetector::PixelEndcap) {
+                const PXFDetId detId(filterResult.detId);
+                layerId = detId.disk();
+                partId = 1;
+                if(detId.side() == 2)
+                    layerId *= -1;
+                else if(detId.side() != 1)
+                    throw std::runtime_error("Bad PXFDetId");
+            } else {
+                throw std::runtime_error("Bad DetId");
+            }
+
+            if(partId != 0 || layerId != 1) continue;
             Chip chip(chip_layout);
             for(const PixelDigi& digi : detector) {
                 const Pixel pixel(digi.row(), digi.column());
