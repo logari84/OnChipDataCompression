@@ -52,6 +52,7 @@ public:
             CreateCommonHist("N_readoutActiveClc_" + encoder_entry.first, 1000);
             CreateCommonHist("N_readoutInactiveClc_" + encoder_entry.first, 1000);
             CreateCommonHist("Max_readoutQueue_" + encoder_entry.first, 1000);
+            CreateCommonHist("ADC_" + encoder_entry.first, 16);
         }
     }
 
@@ -88,6 +89,7 @@ public:
                 const Adc adc(digi.adc() - 1);
                 if(chip_layout.IsPixelInside(pixel))
                     chip.AddPixel(pixel, adc);
+                FillHistogram("Max_readoutQueue_" + maker_name, adc);
             }
             for(const auto& encoder_entry : encoders) {
                 const auto& package = encoder_entry.second->Encode(chip);
