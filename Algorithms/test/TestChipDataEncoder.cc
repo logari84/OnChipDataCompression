@@ -13,6 +13,8 @@ This file is part of https://github.com/kandrosov/OnChipDataCompression. */
 #include "DataFormats/Common/interface/DetSetVector.h"
 #include "DataFormats/Common/interface/Handle.h"
 #include "DataFormats/SiPixelDigi/interface/PixelDigi.h"
+#include "DataFormats/SiPixelDetId/interface/PXBDetId.h"
+#include "DataFormats/SiPixelDetId/interface/PXFDetId.h"
 
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 #include "OnChipDataCompression/Algorithms/interface/ChipDataEncoder.h"
@@ -61,6 +63,25 @@ public:
         for(const auto& detector : *pixelDigis) {
             // Here one should select only detectors that belongs to the same area for which dictionaries were built.
             // Moreover, module should be splet into chips.
+            const DetId detId(detector.detId());
+            int layerId = 0, partId = -1;
+            if(detId.subdetId() == PixelSubdetector::PixelBarrel) {
+                const PXBDetId pxbDetId(detId);
+                layerId = static_cast<int>(pxbDetId.layer());
+                partId = 0;
+            } else if(detId.subdetId() == PixelSubdetector::PixelEndcap) {
+                const PXFDetId pxfDetId(detId);
+                layerId = pxfDetId.disk();
+                partId = 1;
+                if(pxfDetId.side() == 2)
+                    layerId *= -1;
+                else if(pxfDetId.side() != 1)
+                    throw std::runtime_error("Bad PXFDetId");
+            } else {
+                throw std::runtime_error("Bad DetId");
+                }
+            
+            
             Chip chip(chip_layout);
             for(const PixelDigi& digi : detector) {
                 const Pixel pixel(digi.row(), digi.column());
